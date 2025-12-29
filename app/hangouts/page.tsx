@@ -156,7 +156,7 @@ export default function HangoutsPage() {
 
       // Filter out hangouts user is already part of
       const filteredDiscover = (discover || []).filter(
-        h => !participatingIds.includes(h.id)
+        (h: any) => !participatingIds.includes(h.id)
       );
       setPublicHangouts(filteredDiscover);
 
