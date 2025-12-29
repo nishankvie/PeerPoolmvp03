@@ -17,14 +17,25 @@ type Hangout = {
   status: 'planning' | 'confirmed' | 'cancelled' | 'completed';
   is_public: boolean;
   created_at: string;
-  profiles: { full_name: string | null; email: string; avatar_url: string | null };
-  hangout_participants: Array<{ user_id: string; status: string }>;
+  profiles: {
+    full_name: string | null;
+    email: string;
+    avatar_url: string | null;
+  };
+  hangout_participants: Array<{
+    user_id: string;
+    status: string;
+  }>;
+};
+
+type HangoutParticipantRow = {
+  hangout_id: string;
 };
 
 export default function HangoutsPage() {
   const { user } = useAuth();
   const supabase = createClient();
-  
+
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [plannedByMe, setPlannedByMe] = useState<Hangout[]>([]);
   const [joinedHangouts, setJoinedHangouts] = useState<Hangout[]>([]);
@@ -40,9 +51,7 @@ export default function HangoutsPage() {
   ];
 
   useEffect(() => {
-    // Always show the UI, even without Supabase configured
     setLoading(false);
-    
     if (user) {
       fetchHangouts();
     }
@@ -52,7 +61,7 @@ export default function HangoutsPage() {
     const now = new Date();
     const start = new Date();
     const end = new Date();
-    
+
     switch (timeFilter) {
       case 'today':
         start.setHours(0, 0, 0, 0);
@@ -64,28 +73,28 @@ export default function HangoutsPage() {
         end.setDate(now.getDate() + 1);
         end.setHours(23, 59, 59, 999);
         break;
-      case 'weekend':
+      case 'weekend': {
         const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
         start.setDate(now.getDate() + daysUntilSaturday);
         start.setHours(0, 0, 0, 0);
         end.setDate(start.getDate() + 1);
         end.setHours(23, 59, 59, 999);
         break;
+      }
       default:
         start.setHours(0, 0, 0, 0);
         end.setDate(now.getDate() + 7);
         end.setHours(23, 59, 59, 999);
     }
-    
+
     return { start, end };
   };
 
   const fetchHangouts = async () => {
     try {
       const { start, end } = getTimeRange();
-      const now = new Date();
 
-      // Fetch hangouts created by me (upcoming)
+      // Planned by me
       const { data: myHangouts } = await supabase
         .from('hangouts')
         .select(`
@@ -97,16 +106,21 @@ export default function HangoutsPage() {
         .in('status', ['planning', 'confirmed'])
         .order('start_time', { ascending: true });
 
-      setPlannedByMe(myHangouts || []);
+      setPlannedByMe(myHangouts ?? []);
 
-      // Fetch hangouts I've joined (not created by me)
+      // Participation lookup (FIXED)
       const { data: participatingData } = await supabase
         .from('hangout_participants')
         .select('hangout_id')
         .eq('user_id', user?.id)
-        .in('status', ['accepted', 'maybe']);
+        .in('status', ['accepted', 'maybe']) as {
+          data: HangoutParticipantRow[] | null;
+        };
 
-        const participatingIds = participatingData?.map((p: any) => p.hangout_id) || [];
+      const participatingIds =
+        participatingData?.map(p => p.hangout_id) ?? [];
+
+      // Joined hangouts
       if (participatingIds.length > 0) {
         const { data: joined } = await supabase
           .from('hangouts')
@@ -120,10 +134,10 @@ export default function HangoutsPage() {
           .in('status', ['planning', 'confirmed'])
           .order('start_time', { ascending: true });
 
-        setJoinedHangouts(joined || []);
+        setJoinedHangouts(joined ?? []);
       }
 
-      // Fetch past hangouts
+      // Past hangouts
       const { data: past } = await supabase
         .from('hangouts')
         .select(`
@@ -136,9 +150,9 @@ export default function HangoutsPage() {
         .order('start_time', { ascending: false })
         .limit(5);
 
-      setPastHangouts(past || []);
+      setPastHangouts(past ?? []);
 
-      // Fetch public hangouts to discover
+      // Public hangouts
       const { data: discover } = await supabase
         .from('hangouts')
         .select(`
@@ -154,12 +168,10 @@ export default function HangoutsPage() {
         .order('start_time', { ascending: true })
         .limit(4);
 
-      // Filter out hangouts user is already part of
-      const filteredDiscover = (discover || []).filter(
-        (h: any) => !participatingIds.includes(h.id)
-      );
-      setPublicHangouts(filteredDiscover);
+      const filteredDiscover =
+        discover?.filter(h => !participatingIds.includes(h.id)) ?? [];
 
+      setPublicHangouts(filteredDiscover);
     } catch (error) {
       console.error('Error fetching hangouts:', error);
     } finally {
