@@ -7,6 +7,17 @@ import Link from 'next/link';
 
 type TimeFilter = 'today' | 'tomorrow' | 'weekend' | 'custom';
 
+type HangoutParticipant = {
+  user_id: string;
+  status: string;
+};
+
+type Profile = {
+  full_name: string | null;
+  email: string;
+  avatar_url: string | null;
+};
+
 type Hangout = {
   id: string;
   title: string;
@@ -17,15 +28,8 @@ type Hangout = {
   status: 'planning' | 'confirmed' | 'cancelled' | 'completed';
   is_public: boolean;
   created_at: string;
-  profiles: {
-    full_name: string | null;
-    email: string;
-    avatar_url: string | null;
-  };
-  hangout_participants: Array<{
-    user_id: string;
-    status: string;
-  }>;
+  profiles: Profile;
+  hangout_participants: HangoutParticipant[];
 };
 
 type HangoutParticipantRow = {
@@ -51,10 +55,8 @@ export default function HangoutsPage() {
   ];
 
   useEffect(() => {
-    setLoading(false);
-    if (user) {
-      fetchHangouts();
-    }
+    if (user) fetchHangouts();
+    else setLoading(false);
   }, [user, timeFilter]);
 
   const getTimeRange = () => {
@@ -94,7 +96,6 @@ export default function HangoutsPage() {
     try {
       const { start, end } = getTimeRange();
 
-      // Planned by me
       const { data: myHangouts } = await supabase
         .from('hangouts')
         .select(`
@@ -102,17 +103,17 @@ export default function HangoutsPage() {
           profiles:creator_id (full_name, email, avatar_url),
           hangout_participants (user_id, status)
         `)
-        .eq('creator_id', user?.id)
-        .in('status', ['planning', 'confirmed'])
-        .order('start_time', { ascending: true });
+        .eq('creator_id', user!.id)
+        .in('status', ['planning', 'confirmed']) as {
+          data: Hangout[] | null;
+        };
 
       setPlannedByMe(myHangouts ?? []);
 
-      // Participation lookup (FIXED)
       const { data: participatingData } = await supabase
         .from('hangout_participants')
         .select('hangout_id')
-        .eq('user_id', user?.id)
+        .eq('user_id', user!.id)
         .in('status', ['accepted', 'maybe']) as {
           data: HangoutParticipantRow[] | null;
         };
@@ -120,7 +121,6 @@ export default function HangoutsPage() {
       const participatingIds =
         participatingData?.map(p => p.hangout_id) ?? [];
 
-      // Joined hangouts
       if (participatingIds.length > 0) {
         const { data: joined } = await supabase
           .from('hangouts')
@@ -130,14 +130,14 @@ export default function HangoutsPage() {
             hangout_participants (user_id, status)
           `)
           .in('id', participatingIds)
-          .neq('creator_id', user?.id)
-          .in('status', ['planning', 'confirmed'])
-          .order('start_time', { ascending: true });
+          .neq('creator_id', user!.id)
+          .in('status', ['planning', 'confirmed']) as {
+            data: Hangout[] | null;
+          };
 
         setJoinedHangouts(joined ?? []);
       }
 
-      // Past hangouts
       const { data: past } = await supabase
         .from('hangouts')
         .select(`
@@ -145,14 +145,15 @@ export default function HangoutsPage() {
           profiles:creator_id (full_name, email, avatar_url),
           hangout_participants (user_id, status)
         `)
-        .or(`creator_id.eq.${user?.id}`)
+        .or(`creator_id.eq.${user!.id}`)
         .in('status', ['completed', 'cancelled'])
         .order('start_time', { ascending: false })
-        .limit(5);
+        .limit(5) as {
+          data: Hangout[] | null;
+        };
 
       setPastHangouts(past ?? []);
 
-      // Public hangouts
       const { data: discover } = await supabase
         .from('hangouts')
         .select(`
@@ -161,19 +162,21 @@ export default function HangoutsPage() {
           hangout_participants (user_id, status)
         `)
         .eq('is_public', true)
-        .neq('creator_id', user?.id)
+        .neq('creator_id', user!.id)
         .in('status', ['planning', 'confirmed'])
         .gte('start_time', start.toISOString())
         .lte('start_time', end.toISOString())
         .order('start_time', { ascending: true })
-        .limit(4);
+        .limit(4) as {
+          data: Hangout[] | null;
+        };
 
       const filteredDiscover =
         discover?.filter(h => !participatingIds.includes(h.id)) ?? [];
 
       setPublicHangouts(filteredDiscover);
-    } catch (error) {
-      console.error('Error fetching hangouts:', error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
