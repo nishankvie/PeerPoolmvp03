@@ -106,8 +106,7 @@ export default function HangoutsPage() {
         .eq('user_id', user?.id)
         .in('status', ['accepted', 'maybe']);
 
-      const participatingIds = participatingData?.map(p => p.hangout_id) || [];
-
+        const participatingIds = participatingData?.map((p: any) => p.hangout_id) || [];
       if (participatingIds.length > 0) {
         const { data: joined } = await supabase
           .from('hangouts')
