@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-sans;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  * {
+    @apply antialiased;
+  }
+}
+
+@layer utilities {
+  .line-height-comfortable {
+    line-height: 1.5;
+  }
+}
+
