@@ -5,17 +5,6 @@ import Link from 'next/link';
 
 type TimeFilter = 'today' | 'tomorrow' | 'weekend' | 'custom';
 
-type HangoutParticipant = {
-  user_id: string;
-  status: string;
-};
-
-type Profile = {
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-};
-
 type Hangout = {
   id: string;
   title: string;
@@ -23,18 +12,8 @@ type Hangout = {
   start_time: string | null;
   status: 'planning' | 'confirmed' | 'cancelled' | 'completed';
   is_public: boolean;
-<<<<<<< HEAD
-  created_at: string;
-  profiles: Profile;
-  hangout_participants: HangoutParticipant[];
-};
-
-type HangoutParticipantRow = {
-  hangout_id: string;
-=======
   creator: string;
   participants: number;
->>>>>>> 80596c8 (New MVP typescript error resolved and with mock data)
 };
 
 // Mock data
@@ -42,7 +21,7 @@ const mockPlannedByMe: Hangout[] = [
   {
     id: '1',
     title: 'Coffee at Blue Bottle',
-    description: 'Let\'s grab coffee and catch up',
+    description: "Let's grab coffee and catch up",
     start_time: '2024-01-15T15:00:00',
     status: 'confirmed',
     is_public: false,
@@ -78,12 +57,6 @@ const mockPublicHangouts: Hangout[] = [
 ];
 
 export default function HangoutsPage() {
-<<<<<<< HEAD
-  const { user } = useAuth();
-  const supabase = createClient();
-
-=======
->>>>>>> 80596c8 (New MVP typescript error resolved and with mock data)
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
 
   const timeFilters: { key: TimeFilter; label: string }[] = [
@@ -93,137 +66,6 @@ export default function HangoutsPage() {
     { key: 'custom', label: 'Custom' },
   ];
 
-<<<<<<< HEAD
-  useEffect(() => {
-    if (user) fetchHangouts();
-    else setLoading(false);
-  }, [user, timeFilter]);
-
-  const getTimeRange = () => {
-    const now = new Date();
-    const start = new Date();
-    const end = new Date();
-
-    switch (timeFilter) {
-      case 'today':
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case 'tomorrow':
-        start.setDate(now.getDate() + 1);
-        start.setHours(0, 0, 0, 0);
-        end.setDate(now.getDate() + 1);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case 'weekend': {
-        const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
-        start.setDate(now.getDate() + daysUntilSaturday);
-        start.setHours(0, 0, 0, 0);
-        end.setDate(start.getDate() + 1);
-        end.setHours(23, 59, 59, 999);
-        break;
-      }
-      default:
-        start.setHours(0, 0, 0, 0);
-        end.setDate(now.getDate() + 7);
-        end.setHours(23, 59, 59, 999);
-    }
-
-    return { start, end };
-  };
-
-  const fetchHangouts = async () => {
-    try {
-      const { start, end } = getTimeRange();
-
-      const { data: myHangouts } = await supabase
-        .from('hangouts')
-        .select(`
-          *,
-          profiles:creator_id (full_name, email, avatar_url),
-          hangout_participants (user_id, status)
-        `)
-        .eq('creator_id', user!.id)
-        .in('status', ['planning', 'confirmed']) as {
-          data: Hangout[] | null;
-        };
-
-      setPlannedByMe(myHangouts ?? []);
-
-      const { data: participatingData } = await supabase
-        .from('hangout_participants')
-        .select('hangout_id')
-        .eq('user_id', user!.id)
-        .in('status', ['accepted', 'maybe']) as {
-          data: HangoutParticipantRow[] | null;
-        };
-
-      const participatingIds =
-        participatingData?.map(p => p.hangout_id) ?? [];
-
-      if (participatingIds.length > 0) {
-        const { data: joined } = await supabase
-          .from('hangouts')
-          .select(`
-            *,
-            profiles:creator_id (full_name, email, avatar_url),
-            hangout_participants (user_id, status)
-          `)
-          .in('id', participatingIds)
-          .neq('creator_id', user!.id)
-          .in('status', ['planning', 'confirmed']) as {
-            data: Hangout[] | null;
-          };
-
-        setJoinedHangouts(joined ?? []);
-      }
-
-      const { data: past } = await supabase
-        .from('hangouts')
-        .select(`
-          *,
-          profiles:creator_id (full_name, email, avatar_url),
-          hangout_participants (user_id, status)
-        `)
-        .or(`creator_id.eq.${user!.id}`)
-        .in('status', ['completed', 'cancelled'])
-        .order('start_time', { ascending: false })
-        .limit(5) as {
-          data: Hangout[] | null;
-        };
-
-      setPastHangouts(past ?? []);
-
-      const { data: discover } = await supabase
-        .from('hangouts')
-        .select(`
-          *,
-          profiles:creator_id (full_name, email, avatar_url),
-          hangout_participants (user_id, status)
-        `)
-        .eq('is_public', true)
-        .neq('creator_id', user!.id)
-        .in('status', ['planning', 'confirmed'])
-        .gte('start_time', start.toISOString())
-        .lte('start_time', end.toISOString())
-        .order('start_time', { ascending: true })
-        .limit(4) as {
-          data: Hangout[] | null;
-        };
-
-      const filteredDiscover =
-        discover?.filter(h => !participatingIds.includes(h.id)) ?? [];
-
-      setPublicHangouts(filteredDiscover);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-=======
->>>>>>> 80596c8 (New MVP typescript error resolved and with mock data)
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Time TBD';
     const date = new Date(dateString);
@@ -234,15 +76,24 @@ export default function HangoutsPage() {
     const isToday = date.toDateString() === now.toDateString();
     const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-    if (isToday) return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-    if (isTomorrow) return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-    
-    return date.toLocaleDateString('en-US', { 
+    if (isToday)
+      return `Today, ${date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`;
+
+    if (isTomorrow)
+      return `Tomorrow, ${date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`;
+
+    return date.toLocaleDateString('en-US', {
       weekday: 'short',
-      month: 'short', 
+      month: 'short',
       day: 'numeric',
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -261,33 +112,48 @@ export default function HangoutsPage() {
     }
   };
 
-  const HangoutCard = ({ hangout, showCreator = false }: { hangout: Hangout; showCreator?: boolean }) => (
+  const HangoutCard = ({
+    hangout,
+    showCreator = false,
+  }: {
+    hangout: Hangout;
+    showCreator?: boolean;
+  }) => (
     <div className="bg-bg-card rounded-md p-4 border border-border">
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
           <h3 className="font-semibold text-text-primary">{hangout.title}</h3>
-          <p className="text-xs text-text-tertiary mt-1">{formatDate(hangout.start_time)}</p>
+          <p className="text-xs text-text-tertiary mt-1">
+            {formatDate(hangout.start_time)}
+          </p>
         </div>
-        <span className={`px-2 py-1 rounded text-xs font-semibold border ${getStatusStyle(hangout.status)}`}>
+        <span
+          className={`px-2 py-1 rounded text-xs font-semibold border ${getStatusStyle(
+            hangout.status
+          )}`}
+        >
           {hangout.status}
         </span>
       </div>
-      
+
       {hangout.description && (
-        <p className="text-sm text-text-secondary mb-3 line-clamp-2">{hangout.description}</p>
+        <p className="text-sm text-text-secondary mb-3 line-clamp-2">
+          {hangout.description}
+        </p>
       )}
 
       <div className="flex items-center justify-between">
-        {/* Avatar Stack */}
         <div className="flex -space-x-2">
-          {Array(Math.min(hangout.participants, 4)).fill(0).map((_, idx) => (
-            <div
-              key={idx}
-              className="w-7 h-7 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary"
-            >
-              👤
-            </div>
-          ))}
+          {Array(Math.min(hangout.participants, 4))
+            .fill(0)
+            .map((_, idx) => (
+              <div
+                key={idx}
+                className="w-7 h-7 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary"
+              >
+                👤
+              </div>
+            ))}
           {hangout.participants > 4 && (
             <div className="w-7 h-7 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary">
               +{hangout.participants - 4}
@@ -296,9 +162,7 @@ export default function HangoutsPage() {
         </div>
 
         {showCreator && (
-          <p className="text-xs text-text-tertiary">
-            by {hangout.creator}
-          </p>
+          <p className="text-xs text-text-tertiary">by {hangout.creator}</p>
         )}
 
         {hangout.is_public && (
@@ -308,8 +172,13 @@ export default function HangoutsPage() {
     </div>
   );
 
-  const Section = ({ title, hangouts, showCreator = false, emptyMessage }: { 
-    title: string; 
+  const Section = ({
+    title,
+    hangouts,
+    showCreator = false,
+    emptyMessage,
+  }: {
+    title: string;
     hangouts: Hangout[];
     showCreator?: boolean;
     emptyMessage: string;
@@ -323,7 +192,11 @@ export default function HangoutsPage() {
       ) : (
         <div className="space-y-3">
           {hangouts.map((hangout) => (
-            <HangoutCard key={hangout.id} hangout={hangout} showCreator={showCreator} />
+            <HangoutCard
+              key={hangout.id}
+              hangout={hangout}
+              showCreator={showCreator}
+            />
           ))}
         </div>
       )}
@@ -332,11 +205,11 @@ export default function HangoutsPage() {
 
   return (
     <div className="pb-24">
-      {/* Header */}
       <div className="sticky top-0 bg-bg-primary z-10 px-4 py-4 border-b border-border">
-        <h1 className="text-2xl font-semibold text-text-primary mb-4">Hangouts</h1>
-        
-        {/* Time Filters */}
+        <h1 className="text-2xl font-semibold text-text-primary mb-4">
+          Hangouts
+        </h1>
+
         <div className="flex gap-2 overflow-x-auto -mx-4 px-4">
           {timeFilters.map((filter) => (
             <button
@@ -355,27 +228,28 @@ export default function HangoutsPage() {
       </div>
 
       <div className="px-4 py-6">
-        {/* Section 1: Planned by You */}
-        <Section 
-          title="Planned by You" 
+        <Section
+          title="Planned by You"
           hangouts={mockPlannedByMe}
           emptyMessage="You haven't planned any hangouts yet"
         />
 
-        {/* Section 2: Joined Hangouts */}
-        <Section 
-          title="Joined Hangouts" 
+        <Section
+          title="Joined Hangouts"
           hangouts={mockJoinedHangouts}
           showCreator
           emptyMessage="You haven't joined any hangouts"
         />
 
-        {/* Section 4: Find More Hangouts */}
         <section>
-          <h2 className="text-lg font-semibold text-text-primary mb-3">Find More Hangouts</h2>
+          <h2 className="text-lg font-semibold text-text-primary mb-3">
+            Find More Hangouts
+          </h2>
           {mockPublicHangouts.length === 0 ? (
             <div className="bg-bg-card rounded-md p-8 border border-border text-center">
-              <p className="text-text-tertiary text-sm mb-4">No public hangouts available</p>
+              <p className="text-text-tertiary text-sm mb-4">
+                No public hangouts available
+              </p>
               <Link
                 href="/create"
                 className="inline-block px-6 py-2 bg-accent text-white font-semibold rounded-sm hover:bg-accent/90 transition-all"
@@ -386,45 +260,11 @@ export default function HangoutsPage() {
           ) : (
             <div className="space-y-3">
               {mockPublicHangouts.map((hangout) => (
-                <div key={hangout.id} className="bg-bg-card rounded-md p-4 border border-border">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <p className="text-xs text-text-tertiary mb-1">{hangout.creator}</p>
-                      <h3 className="font-semibold text-text-primary">{hangout.title}</h3>
-                      <p className="text-xs text-text-tertiary mt-1">{formatDate(hangout.start_time)}</p>
-                    </div>
-                    
-                    {/* Avatar Stack */}
-                    <div className="flex -space-x-2">
-                      {Array(Math.min(hangout.participants, 3)).fill(0).map((_, idx) => (
-                        <div
-                          key={idx}
-                          className="w-7 h-7 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary"
-                        >
-                          👤
-                        </div>
-                      ))}
-                      {hangout.participants > 3 && (
-                        <div className="w-7 h-7 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary">
-                          +{hangout.participants - 3}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 mt-3">
-                    <button className="px-4 py-2 bg-accent text-white text-sm font-semibold rounded-sm hover:bg-accent/90 transition-all">
-                      Join
-                    </button>
-                    <button className="px-4 py-2 border border-accent text-accent text-sm font-semibold rounded-sm hover:bg-accent/5 transition-all">
-                      Interested
-                    </button>
-                    <button className="px-4 py-2 text-text-tertiary text-sm font-medium hover:text-text-secondary transition-all">
-                      Pass
-                    </button>
-                  </div>
-                </div>
+                <HangoutCard
+                  key={hangout.id}
+                  hangout={hangout}
+                  showCreator
+                />
               ))}
             </div>
           )}
