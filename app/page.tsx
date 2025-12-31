@@ -1,12 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/AuthProvider';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-// Quick hangout options
 const quickHangouts = [
   { id: 'gym', icon: '🏋️', label: 'Gym' },
   { id: 'walk', icon: '🚶', label: 'Walk' },
@@ -21,179 +18,53 @@ const quickHangouts = [
 
 type TimeFilter = 'today' | 'tomorrow' | 'weekend' | 'custom';
 
-type Hangout = {
-  id: string;
-  title: string;
-  creator_id: string;
-  start_time: string | null;
-  status: string;
-  profiles: { full_name: string | null; email: string; avatar_url: string | null };
-  hangout_participants: Array<{ user_id: string; status: string }>;
-};
+// Mock data
+const mockHangouts = [
+  {
+    id: '1',
+    title: 'Coffee at Blue Bottle',
+    creator: 'Alex Chen',
+    participants: 3,
+    time: 'Today, 3:00 PM',
+  },
+  {
+    id: '2',
+    title: 'Evening Walk',
+    creator: 'Jordan Smith',
+    participants: 2,
+    time: 'Today, 6:00 PM',
+  },
+  {
+    id: '3',
+    title: 'Movie Night',
+    creator: 'Sam Taylor',
+    participants: 5,
+    time: 'Tomorrow, 7:00 PM',
+  },
+];
 
-type AvailablePerson = {
-  id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  time_period: string;
-};
+const mockAvailable = [
+  { id: '1', name: 'Sam', initial: 'S', period: 'Afternoon' },
+  { id: '2', name: 'Taylor', initial: 'T', period: 'Afternoon' },
+  { id: '3', name: 'Jordan', initial: 'J', period: 'Evening' },
+];
 
 export default function HomePage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const supabase = createClient();
-  
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
-  const [publicHangouts, setPublicHangouts] = useState<Hangout[]>([]);
-  const [availablePeople, setAvailablePeople] = useState<AvailablePerson[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Always show the UI, even without Supabase configured
-    setLoading(false);
-    if (user) {
-      fetchData();
-    }
-  }, [user, timeFilter]);
-
-  const getTimeRange = () => {
-    const now = new Date();
-    const start = new Date();
-    const end = new Date();
-    
-    switch (timeFilter) {
-      case 'today':
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case 'tomorrow':
-        start.setDate(now.getDate() + 1);
-        start.setHours(0, 0, 0, 0);
-        end.setDate(now.getDate() + 1);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case 'weekend':
-        const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
-        start.setDate(now.getDate() + daysUntilSaturday);
-        start.setHours(0, 0, 0, 0);
-        end.setDate(start.getDate() + 1);
-        end.setHours(23, 59, 59, 999);
-        break;
-      default:
-        start.setHours(0, 0, 0, 0);
-        end.setDate(now.getDate() + 7);
-        end.setHours(23, 59, 59, 999);
-    }
-    
-    return { start, end };
-  };
-
-  const fetchData = async () => {
-    try {
-      const { start, end } = getTimeRange();
-      
-      // Fetch public hangouts
-      const { data: hangouts } = await supabase
-        .from('hangouts')
-        .select(`
-          *,
-          profiles:creator_id (full_name, email, avatar_url),
-          hangout_participants (user_id, status)
-        `)
-        .eq('is_public', true)
-        .in('status', ['planning', 'confirmed'])
-        .gte('start_time', start.toISOString())
-        .lte('start_time', end.toISOString())
-        .order('start_time', { ascending: true })
-        .limit(4);
-
-      setPublicHangouts(hangouts || []);
-
-      // Fetch available people (friends who are free around now)
-      const now = new Date();
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', user?.id)
-        .eq('status', 'accepted');
-
-      if (friendships && friendships.length > 0) {
-        const friendIds = friendships.map(f => f.friend_id);
-        
-        const { data: availableBlocks } = await supabase
-          .from('availability_blocks')
-          .select(`
-            user_id,
-            start_time,
-            end_time,
-            profiles:user_id (id, full_name, email, avatar_url)
-          `)
-          .in('user_id', friendIds)
-          .eq('status', 'available')
-          .lte('start_time', now.toISOString())
-          .gte('end_time', now.toISOString());
-
-        const available: AvailablePerson[] = (availableBlocks || []).map((block: any) => ({
-          ...block.profiles,
-          time_period: getTimePeriod(new Date(block.start_time)),
-        }));
-
-        setAvailablePeople(available);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getTimePeriod = (date: Date) => {
-    const hour = date.getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    if (hour < 21) return 'Evening';
-    return 'Night';
-  };
 
   const handleQuickHangout = (hangout: typeof quickHangouts[0]) => {
     router.push(`/create?title=${encodeURIComponent(hangout.label)}`);
   };
 
-  const handleJoinHangout = async (hangoutId: string) => {
-    if (!user) return;
-    
-    try {
-      await supabase
-        .from('hangout_participants')
-        .insert({
-          hangout_id: hangoutId,
-          user_id: user.id,
-          status: 'accepted',
-        });
-      
-      fetchData();
-    } catch (error) {
-      console.error('Error joining hangout:', error);
-    }
+  const handleJoinHangout = (hangoutId: string) => {
+    console.log('Join hangout:', hangoutId);
+    // Mock action - in real app would show success message
   };
 
-  const handleInterestedHangout = async (hangoutId: string) => {
-    if (!user) return;
-    
-    try {
-      await supabase
-        .from('hangout_participants')
-        .insert({
-          hangout_id: hangoutId,
-          user_id: user.id,
-          status: 'maybe',
-        });
-      
-      fetchData();
-    } catch (error) {
-      console.error('Error expressing interest:', error);
-    }
+  const handleInterestedHangout = (hangoutId: string) => {
+    console.log('Interested in hangout:', hangoutId);
+    // Mock action
   };
 
   const timeFilters: { key: TimeFilter; label: string }[] = [
@@ -204,33 +75,12 @@ export default function HomePage() {
   ];
 
   // Group available people by time period
-  const groupedAvailable = availablePeople.reduce((acc, person) => {
-    const period = person.time_period;
+  const groupedAvailable = mockAvailable.reduce((acc, person) => {
+    const period = person.period;
     if (!acc[period]) acc[period] = [];
     acc[period].push(person);
     return acc;
-  }, {} as Record<string, AvailablePerson[]>);
-
-  if (loading) {
-    return (
-      <div className="px-4 py-6 pb-24">
-        <div className="animate-pulse space-y-6">
-          <div className="h-6 bg-bg-card rounded w-32"></div>
-          <div className="flex gap-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="w-20 h-20 bg-bg-card rounded-md"></div>
-            ))}
-          </div>
-          <div className="h-6 bg-bg-card rounded w-48"></div>
-          <div className="space-y-3">
-            {[1, 2].map(i => (
-              <div key={i} className="h-32 bg-bg-card rounded-md"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, {} as Record<string, typeof mockAvailable>);
 
   return (
     <div className="px-4 py-6 pb-24">
@@ -275,28 +125,27 @@ export default function HomePage() {
         </div>
 
         {/* Hangout Cards */}
-        {publicHangouts.length === 0 ? (
+        {mockHangouts.length === 0 ? (
           <div className="bg-bg-card rounded-md p-8 border border-border text-center">
             <p className="text-text-tertiary text-sm">No hangouts happening {timeFilter === 'today' ? 'today' : timeFilter === 'tomorrow' ? 'tomorrow' : 'this weekend'}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {publicHangouts.slice(0, 4).map((hangout) => (
+            {mockHangouts.slice(0, 4).map((hangout) => (
               <div
                 key={hangout.id}
                 className="bg-bg-card rounded-md p-4 border border-border"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="font-semibold text-text-primary text-sm">
-                      {hangout.profiles?.full_name || hangout.profiles?.email?.split('@')[0]}
-                    </p>
+                    <p className="font-semibold text-text-primary text-sm">{hangout.creator}</p>
                     <h3 className="text-text-secondary text-sm">{hangout.title}</h3>
+                    <p className="text-xs text-text-tertiary mt-1">{hangout.time}</p>
                   </div>
                   
                   {/* Avatar Stack */}
                   <div className="flex -space-x-2">
-                    {hangout.hangout_participants.slice(0, 3).map((p, idx) => (
+                    {Array(hangout.participants).fill(0).map((_, idx) => (
                       <div
                         key={idx}
                         className="w-8 h-8 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary"
@@ -304,11 +153,6 @@ export default function HomePage() {
                         👤
                       </div>
                     ))}
-                    {hangout.hangout_participants.length > 3 && (
-                      <div className="w-8 h-8 rounded-full bg-bg-primary border-2 border-bg-card flex items-center justify-center text-xs text-text-tertiary">
-                        +{hangout.hangout_participants.length - 3}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -356,19 +200,13 @@ export default function HomePage() {
               <div key={period} className="bg-bg-card rounded-md p-4 border border-border">
                 <p className="text-xs text-text-tertiary mb-2">{period}</p>
                 <div className="flex -space-x-2">
-                  {people.slice(0, 6).map((person, idx) => (
+                  {people.slice(0, 6).map((person) => (
                     <div
                       key={person.id}
-                      className="w-10 h-10 rounded-full bg-success/10 border-2 border-success flex items-center justify-center text-sm"
-                      title={person.full_name || person.email}
+                      className="w-10 h-10 rounded-full bg-success/10 border-2 border-success flex items-center justify-center text-sm text-success font-medium"
+                      title={person.name}
                     >
-                      {person.avatar_url ? (
-                        <img src={person.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        <span className="text-success">
-                          {(person.full_name || person.email)?.[0]?.toUpperCase()}
-                        </span>
-                      )}
+                      {person.initial}
                     </div>
                   ))}
                   {people.length > 6 && (

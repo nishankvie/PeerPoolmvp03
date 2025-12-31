@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type Vibe = 'chill' | 'active' | 'social' | 'quiet' | 'adventure';
@@ -32,10 +30,8 @@ const visibilityOptions: { id: Visibility; label: string; description: string }[
 ];
 
 function CreateHangoutContent() {
-  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
 
   // Screen state
   const [screen, setScreen] = useState<1 | 2>(1);
@@ -65,38 +61,6 @@ function CreateHangoutContent() {
     }
   }, [searchParams]);
 
-  const getTimeFromSlot = () => {
-    if (!selectedTime) return null;
-    if (selectedTime === 'custom' && customTime) {
-      return new Date(customTime);
-    }
-    
-    const now = new Date();
-    const date = new Date();
-    
-    switch (selectedTime) {
-      case 'morning':
-        date.setHours(10, 0, 0, 0);
-        break;
-      case 'afternoon':
-        date.setHours(14, 0, 0, 0);
-        break;
-      case 'evening':
-        date.setHours(18, 0, 0, 0);
-        break;
-      case 'tonight':
-        date.setHours(20, 0, 0, 0);
-        break;
-    }
-    
-    // If the time has passed, move to tomorrow
-    if (date < now) {
-      date.setDate(date.getDate() + 1);
-    }
-    
-    return date;
-  };
-
   const handleContinue = () => {
     if (!title.trim()) {
       setError('Please add a title');
@@ -112,45 +76,14 @@ function CreateHangoutContent() {
   };
 
   const handleCreate = async () => {
-    if (!user) return;
-    
     setLoading(true);
     setError(null);
 
-    try {
-      const startTime = getTimeFromSlot();
-      
-      const { data: hangout, error: hangoutError } = await supabase
-        .from('hangouts')
-        .insert({
-          title: title.trim(),
-          description: description.trim() || null,
-          creator_id: user.id,
-          start_time: startTime?.toISOString() || null,
-          is_public: visibility === 'public',
-          status: startTime ? 'confirmed' : 'planning',
-        })
-        .select()
-        .single();
-
-      if (hangoutError) throw hangoutError;
-
-      // Add creator as participant
-      await supabase
-        .from('hangout_participants')
-        .insert({
-          hangout_id: hangout.id,
-          user_id: user.id,
-          status: 'accepted',
-        });
-
-      router.push('/hangouts');
-    } catch (err: any) {
-      console.error('Error creating hangout:', err);
-      setError(err.message || 'Failed to create hangout');
-    } finally {
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false);
-    }
+      router.push('/hangouts');
+    }, 500);
   };
 
   const handleClose = () => {

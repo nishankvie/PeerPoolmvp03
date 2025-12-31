@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/components/AuthProvider';
 
 type Conversation = {
   id: string;
@@ -12,7 +11,7 @@ type Conversation = {
   unread_count: number;
 };
 
-// Mock data - in real app, this would come from Supabase
+// Mock data
 const mockConversations: Conversation[] = [
   {
     id: '1',
@@ -49,7 +48,6 @@ const mockConversations: Conversation[] = [
 ];
 
 export default function ChatPage() {
-  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 

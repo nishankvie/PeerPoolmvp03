@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/BottomNav";
-import { AuthProvider } from "@/components/AuthProvider";
-import { RegisterSW } from "./register-sw";
-import { SetupBanner } from "@/components/SetupBanner";
 
 export const metadata: Metadata = {
   title: "Peerpool",
@@ -32,14 +29,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
       </head>
       <body className="pb-20">
-        <RegisterSW />
-        <AuthProvider>
-          <SetupBanner />
-          <main className="min-h-screen">
-            {children}
-          </main>
-          <BottomNav />
-        </AuthProvider>
+        <main className="min-h-screen">
+          {children}
+        </main>
+        <BottomNav />
       </body>
     </html>
   );

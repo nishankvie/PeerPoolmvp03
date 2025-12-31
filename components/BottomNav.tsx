@@ -6,8 +6,8 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Hide bottom nav on auth pages and create page
-  const hiddenPaths = ['/login', '/create'];
+  // Hide bottom nav on create page
+  const hiddenPaths = ['/create'];
   if (hiddenPaths.some(path => pathname?.startsWith(path))) {
     return null;
   }

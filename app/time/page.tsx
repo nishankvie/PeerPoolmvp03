@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/AuthProvider';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type TimeFilter = 'today' | 'tomorrow' | 'weekend' | 'custom';
@@ -10,9 +8,8 @@ type TimeSlot = 'morning' | 'afternoon' | 'evening' | 'night';
 
 type Person = {
   id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
+  name: string;
+  initial: string;
   status: 'available' | 'busy' | 'maybe';
 };
 
@@ -31,15 +28,74 @@ type TimeSlotData = {
   planned: PlannedHangout[];
 };
 
+// Mock data
+const mockTimeSlots: TimeSlotData[] = [
+  {
+    id: 'morning',
+    label: 'Morning',
+    timeRange: '6am - 12pm',
+    free: [
+      { id: '1', name: 'Alex', initial: 'A', status: 'available' },
+      { id: '2', name: 'Sam', initial: 'S', status: 'available' },
+    ],
+    planning: [
+      { person: { id: '3', name: 'Jordan', initial: 'J', status: 'maybe' }, text: 'Jordan might be free' },
+    ],
+    planned: [
+      {
+        id: '1',
+        title: 'Morning Coffee',
+        participants: [
+          { id: '4', name: 'Taylor', initial: 'T', status: 'available' },
+          { id: '5', name: 'Casey', initial: 'C', status: 'available' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'afternoon',
+    label: 'Afternoon',
+    timeRange: '12pm - 5pm',
+    free: [
+      { id: '6', name: 'Sam', initial: 'S', status: 'available' },
+      { id: '7', name: 'Taylor', initial: 'T', status: 'available' },
+    ],
+    planning: [],
+    planned: [],
+  },
+  {
+    id: 'evening',
+    label: 'Evening',
+    timeRange: '5pm - 9pm',
+    free: [
+      { id: '8', name: 'Jordan', initial: 'J', status: 'available' },
+    ],
+    planning: [],
+    planned: [
+      {
+        id: '2',
+        title: 'Dinner Plans',
+        participants: [
+          { id: '9', name: 'Alex', initial: 'A', status: 'available' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'night',
+    label: 'Night',
+    timeRange: '9pm - 12am',
+    free: [],
+    planning: [],
+    planned: [],
+  },
+];
+
 export default function MyTimePage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const supabase = createClient();
-  
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [expandedSlot, setExpandedSlot] = useState<TimeSlot | null>(null);
-  const [timeSlots, setTimeSlots] = useState<TimeSlotData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [timeSlots] = useState<TimeSlotData[]>(mockTimeSlots);
 
   const timeFilters: { key: TimeFilter; label: string }[] = [
     { key: 'today', label: 'Today' },
@@ -47,172 +103,6 @@ export default function MyTimePage() {
     { key: 'weekend', label: 'Weekend' },
     { key: 'custom', label: 'Custom' },
   ];
-
-  const defaultTimeSlots: Omit<TimeSlotData, 'free' | 'planning' | 'planned'>[] = [
-    { id: 'morning', label: 'Morning', timeRange: '6am - 12pm' },
-    { id: 'afternoon', label: 'Afternoon', timeRange: '12pm - 5pm' },
-    { id: 'evening', label: 'Evening', timeRange: '5pm - 9pm' },
-    { id: 'night', label: 'Night', timeRange: '9pm - 12am' },
-  ];
-
-  useEffect(() => {
-    // Always show the UI, even without Supabase configured
-    // Initialize with empty time slots
-    const emptySlots: TimeSlotData[] = defaultTimeSlots.map(slot => ({
-      ...slot,
-      free: [],
-      planning: [],
-      planned: [],
-    }));
-    setTimeSlots(emptySlots);
-    setLoading(false);
-    
-    if (user) {
-      fetchTimeSlotData();
-    }
-  }, [user, timeFilter]);
-
-  const getDateForFilter = () => {
-    const now = new Date();
-    switch (timeFilter) {
-      case 'today':
-        return now;
-      case 'tomorrow':
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        return tomorrow;
-      case 'weekend':
-        const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
-        const saturday = new Date(now);
-        saturday.setDate(now.getDate() + daysUntilSaturday);
-        return saturday;
-      default:
-        return now;
-    }
-  };
-
-  const getTimeRangeForSlot = (slot: TimeSlot, baseDate: Date) => {
-    const start = new Date(baseDate);
-    const end = new Date(baseDate);
-    
-    switch (slot) {
-      case 'morning':
-        start.setHours(6, 0, 0, 0);
-        end.setHours(12, 0, 0, 0);
-        break;
-      case 'afternoon':
-        start.setHours(12, 0, 0, 0);
-        end.setHours(17, 0, 0, 0);
-        break;
-      case 'evening':
-        start.setHours(17, 0, 0, 0);
-        end.setHours(21, 0, 0, 0);
-        break;
-      case 'night':
-        start.setHours(21, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        break;
-    }
-    
-    return { start, end };
-  };
-
-  const fetchTimeSlotData = async () => {
-    try {
-      const baseDate = getDateForFilter();
-      
-      // Fetch friends
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', user?.id)
-        .eq('status', 'accepted');
-
-      const friendIds = friendships?.map(f => f.friend_id) || [];
-      
-      const slots: TimeSlotData[] = await Promise.all(
-        defaultTimeSlots.map(async (slot) => {
-          const { start, end } = getTimeRangeForSlot(slot.id, baseDate);
-          
-          // Fetch availability blocks for this time slot
-          const { data: availabilityData } = await supabase
-            .from('availability_blocks')
-            .select(`
-              user_id,
-              status,
-              profiles:user_id (id, full_name, email, avatar_url)
-            `)
-            .in('user_id', [...friendIds, user?.id])
-            .lte('start_time', end.toISOString())
-            .gte('end_time', start.toISOString());
-
-          const free: Person[] = [];
-          const planning: { person: Person; text: string }[] = [];
-
-          (availabilityData || []).forEach((block: any) => {
-            if (block.profiles && block.user_id !== user?.id) {
-              const person: Person = {
-                id: block.profiles.id,
-                full_name: block.profiles.full_name,
-                email: block.profiles.email,
-                avatar_url: block.profiles.avatar_url,
-                status: block.status,
-              };
-
-              if (block.status === 'available') {
-                free.push(person);
-              } else if (block.status === 'maybe') {
-                planning.push({
-                  person,
-                  text: `${person.full_name || person.email.split('@')[0]} might be free`,
-                });
-              }
-            }
-          });
-
-          // Fetch hangouts for this time slot
-          const { data: hangoutsData } = await supabase
-            .from('hangouts')
-            .select(`
-              id,
-              title,
-              hangout_participants (
-                user_id,
-                profiles:user_id (id, full_name, email, avatar_url)
-              )
-            `)
-            .in('status', ['planning', 'confirmed'])
-            .lte('start_time', end.toISOString())
-            .gte('start_time', start.toISOString());
-
-          const planned: PlannedHangout[] = (hangoutsData || []).map((h: any) => ({
-            id: h.id,
-            title: h.title,
-            participants: h.hangout_participants?.map((p: any) => ({
-              id: p.profiles?.id,
-              full_name: p.profiles?.full_name,
-              email: p.profiles?.email,
-              avatar_url: p.profiles?.avatar_url,
-              status: 'available' as const,
-            })) || [],
-          }));
-
-          return {
-            ...slot,
-            free,
-            planning,
-            planned,
-          };
-        })
-      );
-
-      setTimeSlots(slots);
-    } catch (error) {
-      console.error('Error fetching time slot data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleSlot = (slotId: TimeSlot) => {
     setExpandedSlot(expandedSlot === slotId ? null : slotId);
@@ -234,25 +124,6 @@ export default function MyTimePage() {
   const handlePlanAtTime = (slot: TimeSlotData) => {
     router.push(`/create?time=${slot.id}`);
   };
-
-  if (loading) {
-    return (
-      <div className="px-4 py-6 pb-24">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-bg-card rounded w-32"></div>
-          <div className="h-4 bg-bg-card rounded w-48"></div>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-10 w-20 bg-bg-card rounded-full"></div>
-            ))}
-          </div>
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-20 bg-bg-card rounded-md"></div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="pb-24">
@@ -307,15 +178,9 @@ export default function MyTimePage() {
                           .map((person, idx) => (
                             <div
                               key={person.id || idx}
-                              className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(person.status)} bg-bg-primary flex items-center justify-center text-xs`}
+                              className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(person.status)} bg-bg-primary flex items-center justify-center text-xs text-text-tertiary`}
                             >
-                              {person.avatar_url ? (
-                                <img src={person.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                              ) : (
-                                <span className="text-text-tertiary">
-                                  {(person.full_name || person.email)?.[0]?.toUpperCase()}
-                                </span>
-                              )}
+                              {person.initial}
                             </div>
                           ))}
                         {totalPeople > 6 && (
@@ -348,18 +213,10 @@ export default function MyTimePage() {
                         <div className="space-y-2">
                           {slot.free.map((person) => (
                             <div key={person.id} className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(person.status)} bg-bg-primary flex items-center justify-center text-xs`}>
-                                {person.avatar_url ? (
-                                  <img src={person.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                ) : (
-                                  <span className="text-text-tertiary">
-                                    {(person.full_name || person.email)?.[0]?.toUpperCase()}
-                                  </span>
-                                )}
+                              <div className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(person.status)} bg-bg-primary flex items-center justify-center text-xs text-text-tertiary`}>
+                                {person.initial}
                               </div>
-                              <span className="text-sm text-text-primary">
-                                {person.full_name || person.email.split('@')[0]}
-                              </span>
+                              <span className="text-sm text-text-primary">{person.name}</span>
                             </div>
                           ))}
                         </div>
@@ -373,14 +230,8 @@ export default function MyTimePage() {
                         <div className="space-y-2">
                           {slot.planning.map((item, idx) => (
                             <div key={idx} className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(item.person.status)} bg-bg-primary flex items-center justify-center text-xs`}>
-                                {item.person.avatar_url ? (
-                                  <img src={item.person.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                ) : (
-                                  <span className="text-text-tertiary">
-                                    {(item.person.full_name || item.person.email)?.[0]?.toUpperCase()}
-                                  </span>
-                                )}
+                              <div className={`w-8 h-8 rounded-full border-2 ${getAvatarBorderColor(item.person.status)} bg-bg-primary flex items-center justify-center text-xs text-text-tertiary`}>
+                                {item.person.initial}
                               </div>
                               <span className="text-sm text-text-secondary">{item.text}</span>
                             </div>
@@ -403,11 +254,7 @@ export default function MyTimePage() {
                                     key={idx}
                                     className="w-6 h-6 rounded-full bg-bg-primary border border-bg-card flex items-center justify-center text-xs text-text-tertiary"
                                   >
-                                    {p.avatar_url ? (
-                                      <img src={p.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                    ) : (
-                                      (p.full_name || p.email)?.[0]?.toUpperCase()
-                                    )}
+                                    {p.initial}
                                   </div>
                                 ))}
                               </div>
